@@ -44,7 +44,7 @@ h2 span{color:var(--mut);font-size:12.5px;font-weight:450}
 .row{display:grid;grid-template-columns:minmax(200px,2.2fr) repeat(5,1fr);gap:12px;align-items:center;padding:13px 14px;border-radius:10px;cursor:pointer;border-bottom:1px solid var(--line2)}
 .row:hover,.row.sel{background:var(--card);box-shadow:0 1px 4px rgba(20,26,46,.08)}
 .row.sel{box-shadow:inset 3px 0 0 #ffcb05,0 1px 4px rgba(20,26,46,.08)}
-.row.hd{cursor:default;color:var(--mut);font-size:12px;padding-bottom:6px}.row.hd:hover{background:none}
+.row.hd{cursor:default;color:var(--mut);font-size:12px;padding-bottom:6px}.row.hd:hover{background:none}.row.hd>div[data-s]{cursor:pointer;user-select:none}.row.hd>div[data-s]:hover{color:var(--text)}.row.hd .ar{font-size:9px;margin-left:3px}
 .row>div:not(:first-child){text-align:right}.row .nm{font-weight:550}.row small{display:block;color:var(--mut);font-size:12px;font-weight:400}
 .row.tot{font-weight:600}
 .ed{display:block;margin-left:auto;width:100%;max-width:104px;text-align:right;background:transparent;border:1px solid transparent;border-radius:6px;padding:3px 6px;font:inherit;color:var(--text)}
@@ -124,7 +124,7 @@ const cl=v=>v==null?'':v>=0?'up':'dn';
 const fd=d=>new Date(ts(d)).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
 const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 let D={lots:[],prices:{},events:[]},M,V,ch,live=false;
-const S={scope:null,view:'ret',range:14,sell:85,hover:null};
+const S={scope:null,view:'ret',range:14,sell:85,hover:null,sort:{k:'val',d:-1}};
 try{S.sell=+localStorage.tcgSell||85}catch(e){}
 
 // ---- model: everything is derived per day from the lots, so purchases at different dates are handled
@@ -211,9 +211,19 @@ function table(){
       <div>${total?'':(P?'pending':usd(px,2))}</div>
       <div>${usd(v)}</div>
       <div class="${cl(r)}">${pc(r)}</div></div>`;};
-  const rows=Object.entries(M.skus).sort((a,b)=>b[1].cost[n]-a[1].cost[n]).filter(([,s])=>s.pending||s.qty[n]>0||(s.realized?.[n]||0)!==0);
-  $('#tbl').innerHTML=`<div class="row hd"><div>SKU</div><div>Cost Basis Per Unit</div><div>Quantity</div><div>Market Price</div><div>Market Value @ ${S.sell}%</div><div>Market Return @ ${S.sell}%</div></div>`
+  const kv=s=>{const P=s.pending,q=s.qty[n],c=s.cost[n],v=P?null:s.val[n]*f,real=s.realized?.[n]||0,basis=c+(s.soldBasis?.[n]||0);
+    return {name:s.name.toLowerCase(),cost:q>0?c/q:null,qty:q,px:P?null:(s.px?s.px[n]:null),val:v,ret:(!P&&basis>0)?((v-c+real)/basis)*100:null}};
+  const {k:sk,d:sd}=S.sort, cmpName=(a,b)=>a.name.localeCompare(b.name);
+  const rows=Object.entries(M.skus).filter(([,s])=>s.pending||s.qty[n]>0||(s.realized?.[n]||0)!==0)
+    .map(e=>[e,kv(e[1])]).sort((A,B)=>{const a=A[1],b=B[1];
+      if(sk==='name')return sd*cmpName(a,b);
+      if(a[sk]==null&&b[sk]==null)return cmpName(a,b); if(a[sk]==null)return 1; if(b[sk]==null)return -1;
+      return sd*(a[sk]-b[sk])||cmpName(a,b)}).map(x=>x[0]).filter(([,s])=>s.pending||s.qty[n]>0||(s.realized?.[n]||0)!==0);
+  const hd=(k,t)=>`<div data-s="${k}">${t}${sk===k?`<span class="ar">${sd>0?'▲':'▼'}</span>`:''}</div>`;
+  $('#tbl').innerHTML=`<div class="row hd">${hd('name','SKU')}${hd('cost','Cost Basis Per Unit')}${hd('qty','Quantity')}${hd('px','Market Price')}${hd('val','Market Value @ '+S.sell+'%')}${hd('ret','Market Return @ '+S.sell+'%')}</div>`
     +line('',M.tot,true)+rows.map(([k,s])=>line(k,s,false)).join('');
+  document.querySelectorAll('#tbl .hd [data-s]').forEach(h=>h.onclick=()=>{const k=h.dataset.s;
+    S.sort=S.sort.k===k?{k,d:-S.sort.d}:{k,d:k==='name'?1:-1};S.hover=null;render()});
   document.querySelectorAll('#tbl .row[data-k]').forEach(r=>r.onclick=()=>{S.scope=(r.dataset.k&&r.dataset.k!==S.scope)?r.dataset.k:null;S.hover=null;render()});
   document.querySelectorAll('#tbl .ed').forEach(i=>{
     i.onclick=e=>e.stopPropagation();
