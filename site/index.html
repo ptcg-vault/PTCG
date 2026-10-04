@@ -68,6 +68,11 @@ h2 span{color:var(--mut);font-size:12.5px;font-weight:450}
 .choice{display:flex;gap:8px;margin:12px 0}.choice button{flex:1;background:var(--card);border:1px solid var(--line2);border-radius:9px;padding:10px;font:inherit;font-weight:600;cursor:pointer}.choice button.on{background:#fff4cc;border-color:#ffcb05;color:#5f4a00}.danger{background:#e5484d;color:#fff}.danger:hover{filter:brightness(1.05)}
 #msg{color:var(--mut);font-size:13px;margin:10px 0 0;min-height:18px}
 #picked{background:var(--card2);border-radius:9px;padding:10px 12px;margin-top:12px;border-left:3px solid var(--yel)}
+.sourceTag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:99px;margin-left:6px;vertical-align:1px;background:#eef0f7;color:var(--mut)}
+.sourceTag.jp{background:#fff0f0;color:#b42318}.sourceTag.gr{background:#eef2ff;color:#3448b8}
+.cardopts{display:flex;gap:8px;margin-top:12px}.cardopts button{flex:1;background:var(--card);border:1px solid var(--line2);border-radius:9px;padding:9px;font:inherit;font-weight:600;cursor:pointer}.cardopts button.on{background:#eef2ff;border-color:#8190e8;color:#243aa5}
+.gradeFields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.gradeFields label{font-size:12px;color:var(--mut)}.gradeFields select{width:100%;margin-top:4px;background:#fff;border:1px solid var(--line2);border-radius:9px;padding:9px 10px;font:inherit;color:var(--text)}
+.searchHint{font-size:11px;color:var(--mut);margin-top:6px}
 @media(max-width:760px){.row{grid-template-columns:1.6fr 1fr 1fr}.row>:nth-child(2),.row>:nth-child(3),.row>:nth-child(4){display:none}.hero .big{font-size:36px}}
 </style>
 </head>
@@ -86,6 +91,14 @@ h2 span{color:var(--mut);font-size:12.5px;font-weight:450}
   <div id="res"></div>
   <div id="pick" hidden>
     <div id="picked"></div>
+    <div id="cardMode" hidden>
+      <div class="cardopts"><button id="rawMode" class="on" type="button">Raw</button><button id="gradedMode" type="button">Graded</button></div>
+      <div id="gradeFields" class="gradeFields" hidden>
+        <label>Grader<select id="grader"><option>PSA</option><option>CGC</option><option>BGS</option><option>SGC</option></select></label>
+        <label>Grade<select id="grade"><option>10</option><option>9.5</option><option>9</option><option>8.5</option><option>8</option><option>7</option><option>6</option><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select></label>
+      </div>
+      <div class="searchHint">Japanese catalog search is free. PriceTracker is called only when pricing Japanese/graded cards or refreshing owned cards.</div>
+    </div>
     <div class="fields">
       <label>Quantity<input id="qty" type="number" min="1" step="1" inputmode="numeric" value="1"></label>
       <label>Avg cost each ($)<input id="cost" type="number" min="0" step="0.01"></label>
@@ -302,7 +315,7 @@ async function boot(){
   if(!session){D={lots:[],prices:{},events:[]};S.scope=null;showAuth();return}
   $('#userbox').hidden=false; $('#who').textContent=session.user.email; $('#add').style.display=''; $('#remove').style.display='';
   $('#app').innerHTML='<p class="mut" style="padding:40px 0">Loading…</p>';
-  try{await load()}catch(e){$('#app').innerHTML='<div class="empty"><h2 style="justify-content:center">Couldn\u2019t load data</h2><p class="mut">'+e.message+'</p></div>';return}
+  try{await load();await refreshRemotePrices();await load()}catch(e){$('#app').innerHTML='<div class="empty"><h2 style="justify-content:center">Couldn\u2019t load data</h2><p class="mut">'+e.message+'</p></div>';return}
   S.scope=null; $('#app').innerHTML=''; render();
 }
 $('#out').onclick=()=>sb.auth.signOut();
@@ -313,6 +326,48 @@ sb.auth.onAuthStateChange((ev,s)=>{const id=s?.user?.id||null;if(id!==uid){uid=i
 let picked=null,timer,CAT=null;
 const msg=t=>$('#msg').textContent=t||'';
 const norm=s=>s.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+const hashPid=s=>{let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return -(1000000000+(h>>>0)%1000000000)};
+const isCard=x=>!!(x&&x.number);
+const sourceBadge=x=>x?.source==='jp'?'<span class="sourceTag jp">Japanese</span>':'';
+let cardMode='raw',remoteCache=new Map();
+function setCardMode(mode){cardMode=mode;$('#rawMode').classList.toggle('on',mode==='raw');$('#gradedMode').classList.toggle('on',mode==='graded');$('#gradeFields').hidden=mode!=='graded'}
+$('#rawMode').onclick=()=>setCardMode('raw'); $('#gradedMode').onclick=()=>setCardMode('graded');
+async function invokePrice(body){const {data,error}=await sb.functions.invoke('pokemon-price-search',{body});if(error)throw error;if(data?.error)throw new Error(data.error);return data}
+async function tcgdexDetails(lang,id){const r=await fetch(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);if(!r.ok)throw new Error('TCGdex lookup failed');return r.json()}
+async function japaneseSearch(q){
+  const key=norm(q);if(remoteCache.has(key))return remoteCache.get(key);
+  const enc=encodeURIComponent(q),urls=[`https://api.tcgdex.net/v2/ja/cards?name=${enc}&pagination:page=1&pagination:itemsPerPage=12`,`https://api.tcgdex.net/v2/en/cards?name=${enc}&pagination:page=1&pagination:itemsPerPage=12`];
+  let ja=[],en=[];try{[ja,en]=await Promise.all(urls.map(u=>fetch(u).then(r=>r.ok?r.json():[])))}catch(e){}
+  const ids=[...new Set([...(ja||[]).map(x=>x.id),...(en||[]).map(x=>x.id)])].slice(0,12);
+  const details=(await Promise.all(ids.map(id=>tcgdexDetails('ja',id).catch(()=>null)))).filter(Boolean);
+  const out=details.map(c=>({source:'jp',tcgdexId:c.id,name:c.name||'',number:c.localId||'',setName:c.set?.name||c.set?.id||'Japanese',set:(c.set?.name||c.set?.id||'Japanese')+(c.localId?' · #'+c.localId:''),image:c.image||'',pid:null,gid:null})).filter(x=>x.name);
+  remoteCache.set(key,out);return out;
+}
+function rawPrice(card){const p=card?.prices||{};for(const v of [p.market,p.marketPrice,p.nearMint,p.normal?.market,p.holofoil?.market,card?.marketPrice,card?.price]){const n=+v;if(Number.isFinite(n)&&n>0)return n}return null}
+function gradePrice(card,grader,grade){const g=(grader+grade).toLowerCase().replace(/[^a-z0-9.]/g,'');const all=card?.ebay?.salesByGrade||card?.salesByGrade||{};let x=all[g];if(!x){const k=Object.keys(all).find(k=>k.toLowerCase().replace(/[^a-z0-9.]/g,'')===g);x=k?all[k]:null}if(!x)return null;for(const v of [x.smartMarketPrice?.price,x.smartMarketPrice,x.marketPrice7Day,x.medianPrice,x.averagePrice,x.marketPrice]){const n=+v;if(Number.isFinite(n)&&n>0)return n}return null}
+async function ensureRemoteMeta(meta){const {error}=await sb.from('remote_items').upsert(meta,{onConflict:'user_id,pid'});if(error)throw new Error('Run supabase/migrations/20261004_remote_items.sql in Supabase first. '+error.message)}
+async function saveTodayPrice(pid,price){if(!(price>0))return;const date=iso(Date.now());const {data,error}=await sb.from('prices').select('pid').eq('pid',pid).eq('date',date).limit(1);if(error)throw error;if(data?.length){const {error:e}=await sb.from('prices').update({price}).eq('pid',pid).eq('date',date);if(e)throw e}else{const {error:e}=await sb.from('prices').insert({pid,date,price});if(e)throw e}}
+async function resolvePickedPrice(base,mode){
+  const grader=$('#grader').value,grade=$('#grade').value;
+  if(base.source!=='jp'&&mode==='raw')return {pid:base.pid,gid:base.gid,name:base.name};
+  let resp;if(base.source==='jp')resp=await invokePrice({action:'match',language:'japanese',name:base.name,number:base.number,setName:base.setName,includeEbay:mode==='graded'});else resp=await invokePrice({action:'byId',tcgPlayerId:base.pid,includeEbay:true});
+  const card=resp?.card;if(!card)throw new Error('No matching PriceTracker card was found.');
+  const providerId=card.tcgPlayerId||card.id||base.pid,price=mode==='graded'?gradePrice(card,grader,grade):rawPrice(card);
+  if(!(price>0))throw new Error(mode==='graded'?`No ${grader} ${grade} market price is available for this card.`:'No current market price is available for this Japanese card.');
+  const pid=hashPid(`ppt:${providerId}:${base.source==='jp'?'ja':'en'}:${mode==='graded'?grader+grade:'raw'}`);
+  const name=mode==='graded'?`${base.name} [${grader} ${grade}]${base.source==='jp'?' [JP]':''}`:`${base.name} [JP]`;
+  const {data:{user}}=await sb.auth.getUser();
+  await ensureRemoteMeta({user_id:user.id,pid,provider:'pokemonpricetracker',provider_id:String(providerId),language:base.source==='jp'?'japanese':'english',grader:mode==='graded'?grader:null,grade:mode==='graded'?grade:null,name,number:base.number||null,set_name:base.setName||null});
+  await saveTodayPrice(pid,price);return {pid,gid:null,name};
+}
+async function refreshRemotePrices(){
+  try{const {data:meta,error}=await sb.from('remote_items').select('*');if(error||!meta?.length)return;const today=iso(Date.now());
+    for(const m of meta.slice(0,50)){if(!D.lots.some(l=>+l.pid===+m.pid))continue;const {data:ex}=await sb.from('prices').select('pid').eq('pid',m.pid).eq('date',today).limit(1);if(ex?.length)continue;
+      const r=await invokePrice({action:'byId',tcgPlayerId:m.provider_id,includeEbay:!!m.grader});const price=m.grader?gradePrice(r?.card,m.grader,m.grade):rawPrice(r?.card);if(price>0)await saveTodayPrice(m.pid,price);
+    }
+  }catch(e){console.warn('Remote price refresh skipped:',e.message)}
+}
+
 async function catalog(){
   if(!CAT){const j=await (await fetch('catalog.json')).json(); if(!j.rows)throw 0;
     CAT={sets:j.sets,rows:j.rows,hay:j.rows.map(r=>norm(r[1]+' '+j.sets[r[2]][0]+' '+j.sets[r[2]][1]+' '+r[3]))}}
@@ -327,21 +382,24 @@ async function find(){
   const t=norm(q).split(' '),hits=[];
   for(let i=0;i<c.rows.length&&hits.length<3000;i++)if(t.every(x=>c.hay[i].includes(x)))hits.push(i);
   hits.sort((a,b)=>c.rows[a][1].length-c.rows[b][1].length);
-  const res=hits.slice(0,25).map(i=>{const r=c.rows[i];return {pid:r[0],name:r[1],gid:r[2],set:c.sets[r[2]][0]+(r[3]?' · #'+r[3]:'')}});
+  let res=hits.slice(0,20).map(i=>{const r=c.rows[i];return {source:'local',pid:r[0],name:r[1],gid:r[2],number:r[3]||'',setName:c.sets[r[2]][0],set:c.sets[r[2]][0]+(r[3]?' · #'+r[3]:'')}});
+  try{res=res.concat((await japaneseSearch(q)).slice(0,8))}catch(e){}
   msg(res.length?'':'No products match.');
-  $('#res').innerHTML=res.map((x,i)=>`<button data-i="${i}">${x.name}<small>${x.set}</small></button>`).join('');
+  $('#res').innerHTML=res.map((x,i)=>`<button data-i="${i}">${x.name}${sourceBadge(x)}<small>${x.set}</small></button>`).join('');
   $('#res').onclick=e=>{const b=e.target.closest('button');if(!b)return;picked=res[+b.dataset.i];
-    $('#picked').innerHTML=`<b>${picked.name}</b><small class="mut" style="display:block">${picked.set}</small>`;$('#pick').hidden=false;$('#res').innerHTML='';
-    const eq=D.lots.filter(l=>l.pid===picked.pid).reduce((a,l)=>a+l.qty,0);
+    $('#picked').innerHTML=`<b>${picked.name}</b>${sourceBadge(picked)}<small class="mut" style="display:block">${picked.set}</small>`;$('#pick').hidden=false;$('#res').innerHTML='';
+    $('#cardMode').hidden=!isCard(picked);setCardMode('raw');
+    const eq=picked.pid==null?0:D.lots.filter(l=>+l.pid===+picked.pid).reduce((a,l)=>a+l.qty,0);
     msg(eq?`You already hold ${eq} — this purchase will be averaged into that position.`:'');$('#cost').focus()};
 }
 $('#q').oninput=()=>{clearTimeout(timer);timer=setTimeout(find,250)};
 $('#save').onclick=async()=>{
   const qty=+$('#qty').value,cost=+$('#cost').value; if(!picked||!(qty>0)||!Number.isInteger(qty)||!(cost>=0)||$('#cost').value===''){msg('Quantity must be a whole number, and cost is required.');return}
-  $('#save').disabled=true;msg('Adding…');
+  $('#save').disabled=true;msg((picked.source==='jp'||cardMode==='graded')?'Getting current market price…':'Adding…');
   try{
-    const {error}=await sb.from('lots').insert({pid:picked.pid,gid:picked.gid,name:picked.name,qty,cost,date:$('#dt').value}); if(error)throw error;
-    await load(); $('#modal').hidden=true; $('#pick').hidden=true; $('#q').value=''; picked=null; msg(); render();
+    const resolved=await resolvePickedPrice(picked,isCard(picked)?cardMode:'raw');
+    const {error}=await sb.from('lots').insert({pid:resolved.pid,gid:resolved.gid,name:resolved.name,qty,cost,date:$('#dt').value}); if(error)throw error;
+    await load(); $('#modal').hidden=true; $('#pick').hidden=true; $('#cardMode').hidden=true; $('#q').value=''; picked=null; msg(); render();
   }catch(e){msg('Failed: '+e.message)}
   $('#save').disabled=false;
 };
