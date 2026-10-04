@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TCG Vault</title>
+<style>
+:root{color-scheme:light;--bg:#fff;--card:#f5f6fa;--card2:#eef0f7;--line2:#e3e6f0;--text:#141a2e;--mut:#6b7590;
+ --red:#ee1515;--yel:#c98a00;--blu:#3b4cca;--up:#0aa06e;--dn:#e5484d;--line:var(--up)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+ font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;font-variant-numeric:tabular-nums}
+body:before{content:"";position:fixed;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,var(--red),var(--yel),var(--blu));z-index:5}
+.wrap{max-width:1080px;margin:0 auto;padding:22px 20px 60px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:26px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:650;letter-spacing:.02em}
+.brand small{color:var(--mut);font-weight:450;letter-spacing:0}
+.ball{width:22px;height:22px;border-radius:50%;background:linear-gradient(#ee1515 0 44%,#0b0b12 44% 56%,#f4f4f6 56%);position:relative;box-shadow:0 0 0 2px #0b0b12,0 2px 8px rgba(238,21,21,.3)}
+.ball:after{content:"";position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px;border-radius:50%;background:#f4f4f6;border:2px solid #0b0b12}
+.right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ghost{background:none;border:1px solid var(--line2);color:var(--text);border-radius:99px;padding:6px 14px;font:inherit;cursor:pointer}.ghost:hover{background:var(--card)}
+.authcard{max-width:380px;margin:60px auto;background:var(--card);border-radius:16px;padding:28px}
+.authcard input{width:100%;margin-bottom:10px;background:#fff;border:1px solid var(--line2);color:var(--text);border-radius:9px;padding:10px 12px;font:inherit}
+.authbtns{display:flex;gap:10px}.authbtns .go,.authbtns .ghost{flex:1;padding:10px}
+.cta{display:flex;align-items:center;gap:7px;background:var(--red);color:#fff;border:0;border-radius:99px;padding:8px 16px 8px 12px;font:inherit;font-weight:600;cursor:pointer}
+.cta:hover{filter:brightness(1.1)}
+.cta svg{width:16px;height:16px}
+.hero .lbl{color:var(--mut);font-size:13px;min-height:20px}
+.hero .big{font-size:44px;font-weight:600;letter-spacing:-.03em;line-height:1.15}
+.chg{font-size:14px;margin-top:2px}.chg .sub{color:var(--mut);margin-top:4px;font-size:13px}.chg b{font-weight:600}
+.up{color:var(--up)}.dn{color:var(--dn)}.mut{color:var(--mut)}
+.chartbox{height:300px;margin:18px -4px 0;position:relative}
+.bar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;border-top:1px solid var(--line2);margin-top:14px;padding-top:12px}
+.seg{display:flex;gap:2px}
+.seg button{background:none;border:0;color:var(--mut);font:inherit;font-weight:600;padding:5px 11px;border-radius:6px;cursor:pointer}
+.seg button:hover{color:var(--text)}
+.seg button.on{color:var(--line);background:color-mix(in srgb,var(--line) 14%,transparent)}
+.views button.on{color:var(--yel);background:rgba(201,138,0,.12)}
+.opts{display:flex;align-items:center;gap:14px;color:var(--mut);font-size:12.5px;flex-wrap:wrap}
+.opts input{width:52px;background:var(--card);border:1px solid var(--line2);color:var(--text);border-radius:6px;padding:3px 6px;font:inherit}
+.k{display:inline-block;width:16px;border-top:2px solid;vertical-align:middle;margin-right:5px}
+h2{font-size:16px;margin:34px 0 8px;font-weight:600;display:flex;justify-content:space-between;align-items:baseline}
+h2 span{color:var(--mut);font-size:12.5px;font-weight:450}
+.row{display:grid;grid-template-columns:minmax(200px,2.2fr) repeat(5,1fr);gap:12px;align-items:center;padding:13px 14px;border-radius:10px;cursor:pointer;border-bottom:1px solid var(--line2)}
+.row:hover,.row.sel{background:var(--card);box-shadow:0 1px 4px rgba(20,26,46,.08)}
+.row.sel{box-shadow:inset 3px 0 0 #ffcb05,0 1px 4px rgba(20,26,46,.08)}
+.row.hd{cursor:default;color:var(--mut);font-size:12px;padding-bottom:6px}.row.hd:hover{background:none}
+.row>div:not(:first-child){text-align:right}.row .nm{font-weight:550}.row small{display:block;color:var(--mut);font-size:12px;font-weight:400}
+.row.tot{font-weight:600}
+.ed{display:block;margin-left:auto;width:100%;max-width:104px;text-align:right;background:transparent;border:1px solid transparent;border-radius:6px;padding:3px 6px;font:inherit;color:var(--text)}
+.ed:hover{border-color:var(--line2)}.ed:focus{outline:2px solid var(--blu);background:#fff;border-color:transparent}
+.row svg{display:block;margin-left:auto}
+.empty{background:var(--card);border-radius:14px;padding:44px;text-align:center;margin-top:30px}
+.empty code{background:var(--card2);padding:2px 7px;border-radius:5px}
+#modal,#removeModal{position:fixed;inset:0;background:rgba(20,26,46,.35);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding-top:9vh;z-index:10}
+#modal[hidden],#removeModal[hidden]{display:none}
+.sheet{background:#fff;border:1px solid var(--line2);border-radius:16px;width:min(560px,94vw);padding:22px;box-shadow:0 30px 80px rgba(20,26,46,.22)}
+.sheet h3{margin:0 0 14px;font-size:18px}
+.sheet input{width:100%;background:var(--bg);border:1px solid var(--line2);color:var(--text);border-radius:9px;padding:10px 12px;font:inherit}
+.sheet input:focus{outline:2px solid var(--blu);border-color:transparent}
+#res,#rres{max-height:260px;overflow:auto;margin-top:8px}
+#res button,#rres button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--text);padding:9px 10px;border-radius:8px;font:inherit;cursor:pointer}
+#res button:hover,#rres button:hover{background:var(--card2)}#res small,#rres small{color:var(--mut);display:block}
+.fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:12px 0}
+.fields label{font-size:12px;color:var(--mut)}.fields input{margin-top:4px}
+.go{width:100%;background:#ffcb05;color:#161200;border:0;border-radius:99px;padding:11px;font:inherit;font-weight:700;cursor:pointer}
+.go:disabled{opacity:.5}
+.choice{display:flex;gap:8px;margin:12px 0}.choice button{flex:1;background:var(--card);border:1px solid var(--line2);border-radius:9px;padding:10px;font:inherit;font-weight:600;cursor:pointer}.choice button.on{background:#fff4cc;border-color:#ffcb05;color:#5f4a00}.danger{background:#e5484d;color:#fff}.danger:hover{filter:brightness(1.05)}
+#msg{color:var(--mut);font-size:13px;margin:10px 0 0;min-height:18px}
+#picked{background:var(--card2);border-radius:9px;padding:10px 12px;margin-top:12px;border-left:3px solid var(--yel)}
+@media(max-width:760px){.row{grid-template-columns:1.6fr 1fr 1fr}.row>:nth-child(2),.row>:nth-child(3),.row>:nth-child(4){display:none}.hero .big{font-size:36px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><span class="ball"></span>TCG VAULT</div>
+    <div class="right"><span id="userbox" hidden><span id="who" class="mut"></span> <button class="ghost" id="out">Sign out</button></span><button class="ghost" id="remove">Remove Inventory</button><button class="cta" id="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add Inventory</button></div>
+  </header>
+  <div id="app"></div>
+</div>
+
+<div id="modal" hidden><div class="sheet">
+  <h3>Add Inventory</h3>
+  <input id="q" placeholder="Search sealed product, e.g. Ascended Heroes Elite Trainer Box" autocomplete="off">
+  <div id="res"></div>
+  <div id="pick" hidden>
+    <div id="picked"></div>
+    <div class="fields">
+      <label>Quantity<input id="qty" type="number" min="1" step="1" inputmode="numeric" value="1"></label>
+      <label>Avg cost each ($)<input id="cost" type="number" min="0" step="0.01"></label>
+      <label>Purchase date<input id="dt" type="date"></label>
+    </div>
+    <button class="go" id="save">Add Inventory</button>
+  </div>
+  <p id="msg"></p>
+</div></div>
+<div id="removeModal" hidden><div class="sheet">
+  <h3>Remove Inventory</h3>
+  <input id="rq" placeholder="Search your current inventory" autocomplete="off">
+  <div id="rres"></div>
+  <div id="rpick" hidden>
+    <div id="rpicked"></div>
+    <div class="fields" style="grid-template-columns:1fr 1fr">
+      <label>Quantity<input id="rqty" type="number" min="1" step="1" inputmode="numeric" value="1"></label>
+      <label>Date<input id="rdt" type="date"></label>
+    </div>
+    <div class="choice"><button id="removeOnly" class="on" type="button">Remove</button><button id="sold" type="button">Sold</button></div>
+    <div id="soldFields" hidden><label style="font-size:12px;color:var(--mut)">Sold price each ($)<input id="soldPrice" type="number" min="0" step="0.01"></label></div>
+    <button class="go" id="confirmRemove" style="margin-top:12px">Remove Inventory</button>
+  </div>
+  <p id="rmsg"></p>
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+(()=>{
+const $=s=>document.querySelector(s), DAY=864e5, iso=t=>new Date(t).toISOString().slice(0,10), ts=d=>Date.parse(d);
+const usd=(v,d=0)=>v==null?'—':(v<0?'−':'')+'$'+Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+const pc=v=>v==null?'—':(v>=0?'+':'−')+Math.abs(v).toFixed(2)+'%';
+const cl=v=>v==null?'':v>=0?'up':'dn';
+const fd=d=>new Date(ts(d)).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let D={lots:[],prices:{},events:[]},M,V,ch,live=false;
+const S={scope:null,view:'ret',range:14,sell:85,hover:null};
+try{S.sell=+localStorage.tcgSell||85}catch(e){}
+
+// ---- model: everything is derived per day from the lots, so purchases at different dates are handled
+function model(){
+  const L=D.lots, E=D.events||[]; if(!L.length&&!E.length) return null;
+  const allDates=[...L.map(l=>l.date),...E.map(e=>e.date),...Object.values(D.prices).flatMap(p=>Object.keys(p))].filter(Boolean).sort();
+  const days=[...new Set(allDates)]; if(!days.length)return null;
+  const skus={};
+  L.forEach(l=>(skus[l.pid]??={name:l.name,lots:[],events:[]}).lots.push(l));
+  E.forEach(e=>(skus[e.pid]??={name:e.name||('SKU '+e.pid),lots:[],events:[]}).events.push(e));
+  for(const [pid,s] of Object.entries(skus)){
+    const p=D.prices[pid]||{}; let last=null,qty=0,cost=0,realized=0,soldBasis=0;
+    s.px=[];s.qty=[];s.cost=[];s.val=[];s.realized=[];s.soldBasis=[];
+    for(const d of days){
+      if(p[d]!=null)last=p[d];
+      for(const l of s.lots.filter(x=>x.date===d)){qty+=+l.qty;cost+=(+l.qty)*(+l.cost)}
+      const evs=s.events.filter(x=>x.date===d).sort((a,b)=>(a.id||0)-(b.id||0));
+      for(const e of evs){
+        const take=Math.min(+e.qty,Math.max(0,qty));
+        const avg=qty>0?cost/qty:0, basis=take*avg;
+        qty-=take; cost=Math.max(0,cost-basis);
+        if(e.event_type==='sold'){realized+=take*((+e.sold_price||0)-avg);soldBasis+=basis}
+      }
+      s.px.push(last);s.qty.push(qty);s.cost.push(cost);s.val.push(qty*(last??0));s.realized.push(realized);s.soldBasis.push(soldBasis);
+    }
+    s.pending=s.px.every(v=>v==null); s.lotQty=s.qty.at(-1)||0; s.lotCost=s.cost.at(-1)||0;
+  }
+  const sum=k=>days.map((_,i)=>Object.values(skus).reduce((a,s)=>a+(s[k]?.[i]||0),0));
+  return {days,skus,tot:{name:'Total portfolio',qty:sum('qty'),cost:sum('cost'),val:sum('val'),realized:sum('realized'),soldBasis:sum('soldBasis')}};
+}
+function derive(){
+  const c=S.scope?M.skus[S.scope]:M.tot, n=M.days.length;
+  const i0=Math.max(0,c.qty.findIndex(q=>q>0));
+  const ix=[...Array(n-i0).keys()].map(k=>k+i0);
+  V={c,f:S.sell/100,i0,ix,val:ix.map(i=>c.val[i]),cost:ix.map(i=>c.cost[i]),realized:ix.map(i=>c.realized?.[i]||0),soldBasis:ix.map(i=>c.soldBasis?.[i]||0)};
+}
+const ret=(k,f)=>{const basis=V.cost[k]+V.soldBasis[k];return basis>0?((V.val[k]*f-V.cost[k]+V.realized[k])/basis)*100:null};
+
+const sgn=v=>v==null?'—':(v>=0?'+':'−')+usd(Math.abs(v));
+function head(){
+  const k=S.hover??V.ix.length-1, f=V.f, v=V.val[k]*f, c=V.cost[k], realized=V.realized[k], pl=v-c+realized, r=ret(k,f);
+  $('#lbl').textContent=(S.scope?M.skus[S.scope].name:'Total portfolio')+(S.hover!=null?'  ·  '+fd(M.days[V.ix[k]]):'');
+  $('#big').className='big '+(S.view==='val'?'':cl(S.view==='ret'?r:pl));
+  $('#big').textContent=S.view==='ret'?pc(r):S.view==='pl'?sgn(pl):usd(v);
+  $('#chg').innerHTML=`<div class="sub">Market value <b>${usd(v)}</b> · P/L <b class="${cl(pl)}">${sgn(pl)}</b> · Realized <b class="${cl(realized)}">${sgn(realized)}</b> · Return <b class="${cl(r)}">${pc(r)}</b> · Active cost basis ${usd(c)} · valued at ${S.sell}% of market price</div>`;
+}
+
+const cross={id:'cross',afterDatasetsDraw(c){
+  if(S.hover==null)return; const el=c.getDatasetMeta(0).data[S.hover]; if(!el)return;
+  const g=c.ctx,x=el.x,a=c.chartArea; g.save(); g.strokeStyle='#b5bccf'; g.lineWidth=1;
+  g.beginPath(); g.moveTo(x,a.top+4); g.lineTo(x,a.bottom); g.stroke(); g.restore();
+}};
+function draw(){
+  const {f,ix}=V, up=css('--up'), dn=css('--dn'), sg=v=>(v??0)>=0?up:dn;
+  const y=S.view==='ret'?ix.map((_,k)=>ret(k,f)):S.view==='pl'?ix.map((_,k)=>V.val[k]*f-V.cost[k]+V.realized[k]):ix.map((_,k)=>V.val[k]*f);
+  const base={data:y,borderWidth:2.5,tension:.18,pointRadius:y.length<=40?3:0,pointHoverRadius:5};
+  let ds;
+  if(S.view==='val'){
+    const t=y.at(-1)>=y[0]?up:dn;
+    ds=Object.assign(base,{borderColor:t,pointBackgroundColor:t,pointBorderColor:t,pointHoverBackgroundColor:t,fill:'start',backgroundColor:t+'18'});
+  }else{
+    ds=Object.assign(base,{borderColor:up,segment:{borderColor:c=>sg(c.p1.parsed.y)},pointBackgroundColor:c=>sg(c.raw),pointBorderColor:c=>sg(c.raw),pointHoverBackgroundColor:c=>sg(c.raw),
+      fill:{target:'origin',above:up+'22',below:dn+'22'}});
+  }
+  const cfg={type:'line',data:{labels:ix.map(i=>M.days[i]),datasets:[ds]},plugins:[cross],options:{
+    responsive:true,maintainAspectRatio:false,animation:false,layout:{padding:{top:6,left:6,right:6}},
+    interaction:{mode:'index',intersect:false},
+    scales:{x:{display:false},y:{display:false,grace:'12%'}},plugins:{legend:{display:false},tooltip:{enabled:false}},
+    onHover:(e,els)=>{const k=els.length?els[0].index:null; if(k!==S.hover){S.hover=k;head();ch.draw()}}}};
+  if(ch)ch.destroy(); ch=new Chart($('#c'),cfg);
+  $('#c').onmouseleave=()=>{S.hover=null;head();ch.draw()};
+}
+
+function table(){
+  const n=M.days.length-1, f=V.f, esc=s=>s.replace(/"/g,'&quot;');
+  const line=(key,s,total)=>{
+    const P=s.pending,q=s.qty[n],c=s.cost[n],v=P?null:s.val[n]*f,px=s.px?s.px[n]:null,real=s.realized?.[n]||0,basis=c+(s.soldBasis?.[n]||0),r=(!P&&basis>0)?((v-c+real)/basis)*100:null;
+    return `<div class="row ${total?'tot':''} ${(S.scope||'')==key?'sel':''}" data-k="${esc(key)}">
+      <div class="nm">${s.name}</div>
+      <div>${total?'':`<input class="ed" data-f="cost" type="number" min="0" step="any" value="${(c/q).toFixed(2)}">`}</div>
+      <div>${total?q:`<input class="ed" data-f="qty" type="number" min="0" step="1" inputmode="numeric" value="${q}">`}</div>
+      <div>${total?'':(P?'pending':usd(px,2))}</div>
+      <div>${usd(v)}</div>
+      <div class="${cl(r)}">${pc(r)}</div></div>`;};
+  const rows=Object.entries(M.skus).sort((a,b)=>b[1].cost[n]-a[1].cost[n]).filter(([,s])=>s.pending||s.qty[n]>0||(s.realized?.[n]||0)!==0);
+  $('#tbl').innerHTML=`<div class="row hd"><div>SKU</div><div>Cost Basis Per Unit</div><div>Quantity</div><div>Market Price</div><div>Market Value @ ${S.sell}%</div><div>Market Return @ ${S.sell}%</div></div>`
+    +line('',M.tot,true)+rows.map(([k,s])=>line(k,s,false)).join('');
+  document.querySelectorAll('#tbl .row[data-k]').forEach(r=>r.onclick=()=>{S.scope=(r.dataset.k&&r.dataset.k!==S.scope)?r.dataset.k:null;S.hover=null;render()});
+  document.querySelectorAll('#tbl .ed').forEach(i=>{
+    i.onclick=e=>e.stopPropagation();
+    i.onkeydown=e=>{if(e.key==='Enter')i.blur()};
+    i.onchange=()=>saveEdit(i.closest('.row').dataset.k);
+  });
+}
+async function saveEdit(pid){
+  const row=document.querySelector(`#tbl .row[data-k="${pid}"]`), qi=row.querySelector('[data-f=qty]'), ci=row.querySelector('[data-f=cost]');
+  const qty=+qi.value, cost=+ci.value;
+  if(qi.value===''||ci.value===''||!(qty>=0)||!Number.isInteger(qty)||!(cost>=0)){alert('Quantity must be a whole number.');render();return}
+  if(qty===0&&!confirm('Quantity 0 removes this SKU from your portfolio. Continue?')){render();return}
+  try{
+    const {error}=await sb.rpc('edit_sku',{p_pid:+pid,p_qty:qty,p_cost:cost}); if(error)throw error;
+    await load(); if(qty===0&&S.scope===pid)S.scope=null; render();
+  }catch(e){alert('Save failed: '+e.message);render()}
+}
+
+function render(){
+  M=model();
+  if(!M){$('#app').innerHTML='<div class="empty"><h2 style="justify-content:center">No holdings yet</h2><p class="mut">Click <b>Add Inventory</b> to add your first product.</p></div>';return}
+  if(!$('#tbl')){
+    $('#app').innerHTML=`<section class="hero"><div class="lbl" id="lbl"></div><div class="big" id="big"></div><div class="chg" id="chg"></div>
+      <div class="chartbox"><canvas id="c"></canvas></div>
+      <div class="bar"><div class="seg views" id="views"><button data-v="ret">Return</button><button data-v="pl">P/L</button><button data-v="val">Total Market Value</button></div>
+      <div class="opts"><label>Value at <input id="sell" type="number" min="1" max="100" step="any" value="${S.sell}">% of market price</label></div></div></section>
+      <h2>Holdings <span>click a SKU to chart it · quantity must be a whole number</span></h2><div id="tbl"></div>`;
+    $('#views').onclick=e=>{const b=e.target.closest('button');if(b){S.view=b.dataset.v;S.hover=null;render()}};
+    $('#sell').oninput=e=>{const v=+e.target.value;if(v>0&&v<=100){S.sell=v;try{localStorage.tcgSell=v}catch(x){}render()}};
+  }
+  derive(); draw(); head(); table();
+  document.querySelectorAll('#views button').forEach(b=>b.classList.toggle('on',b.dataset.v===S.view));
+}
+
+// ---- Supabase: data, auth
+const cfg=window.TCG_CONFIG||{};
+if(!cfg.SUPABASE_URL||!cfg.SUPABASE_ANON_KEY||cfg.SUPABASE_URL.includes('YOUR-')){
+  $('#app').innerHTML='<div class="empty"><h2 style="justify-content:center">Almost there</h2><p class="mut">Put your Supabase URL and anon key in <code>site/config.js</code>.</p></div>';return;
+}
+const sb=supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY);
+async function all(q){let out=[],from=0;for(;;){const {data,error}=await q().range(from,from+999);if(error)throw error;out=out.concat(data);if(data.length<1000)return out;from+=1000}}
+async function load(){
+  const lots=await all(()=>sb.from('lots').select('*').order('date').order('id'));
+  const events=await all(()=>sb.from('inventory_events').select('*').order('date').order('id'));
+  const pids=[...new Set([...lots.map(l=>l.pid),...events.map(e=>e.pid)])], prices={};
+  if(pids.length){const rows=await all(()=>sb.from('prices').select('pid,date,price').in('pid',pids).order('pid').order('date'));rows.forEach(r=>(prices[r.pid]??={})[r.date]=+r.price)}
+  D={lots:lots.map(l=>({...l,qty:+l.qty,cost:+l.cost})),prices,events:events.map(e=>({...e,qty:+e.qty,sold_price:e.sold_price==null?null:+e.sold_price}))};
+}
+function showAuth(mode='in'){
+  $('#userbox').hidden=true; $('#add').style.display='none'; $('#remove').style.display='none';
+  const up=mode==='up';
+  $('#app').innerHTML=`<div class="authcard"><h2 style="margin-top:0;justify-content:center">${up?'Create your account':'Sign in to your vault'}</h2>
+    <input id="em" type="email" placeholder="Email" autocomplete="email">
+    <input id="pw" type="password" placeholder="${up?'Password (6+ characters)':'Password'}" autocomplete="${up?'new-password':'current-password'}">
+    ${up?'<input id="pw2" type="password" placeholder="Confirm password" autocomplete="new-password">':''}
+    <div class="authbtns"><button class="go" id="go" style="width:100%">${up?'Create account':'Sign in'}</button></div>
+    <p id="am" class="mut" style="margin:12px 0 0;min-height:18px"></p>
+    <p class="mut" style="margin:8px 0 0;text-align:center">${up?'Already have an account?':'New here?'} <a href="#" id="sw" style="color:var(--text);text-decoration:underline">${up?'Sign in':'Create an account'}</a></p></div>`;
+  const msg=t=>$('#am').textContent=t;
+  const cred=()=>({email:$('#em').value.trim(),password:$('#pw').value});
+  $('#sw').onclick=e=>{e.preventDefault();showAuth(up?'in':'up')};
+  ($('#pw2')||$('#pw')).onkeydown=e=>{if(e.key==='Enter')$('#go').click()};
+  $('#go').onclick=async()=>{
+    msg('');
+    if(!up){const {error}=await sb.auth.signInWithPassword(cred());if(error)msg(error.message);return}
+    const c=cred();
+    if(c.password.length<6)return msg('Password must be at least 6 characters.');
+    if(c.password!==$('#pw2').value)return msg('Passwords don\u2019t match.');
+    const {data,error}=await sb.auth.signUp(c);
+    if(error)return msg(error.message);
+    if(!data.session)msg('Check your email to confirm your account, then sign in.');
+  };
+}
+async function boot(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){D={lots:[],prices:{},events:[]};S.scope=null;showAuth();return}
+  $('#userbox').hidden=false; $('#who').textContent=session.user.email; $('#add').style.display=''; $('#remove').style.display='';
+  $('#app').innerHTML='<p class="mut" style="padding:40px 0">Loading…</p>';
+  try{await load()}catch(e){$('#app').innerHTML='<div class="empty"><h2 style="justify-content:center">Couldn\u2019t load data</h2><p class="mut">'+e.message+'</p></div>';return}
+  S.scope=null; $('#app').innerHTML=''; render();
+}
+$('#out').onclick=()=>sb.auth.signOut();
+let uid;
+sb.auth.onAuthStateChange((ev,s)=>{const id=s?.user?.id||null;if(id!==uid){uid=id;boot()}});
+
+// ---- add SKU (search runs in the browser against site/catalog.json)
+let picked=null,timer,CAT=null;
+const msg=t=>$('#msg').textContent=t||'';
+const norm=s=>s.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+async function catalog(){
+  if(!CAT){const j=await (await fetch('catalog.json')).json(); if(!j.rows)throw 0;
+    CAT={sets:j.sets,rows:j.rows,hay:j.rows.map(r=>norm(r[1]+' '+j.sets[r[2]][0]+' '+j.sets[r[2]][1]+' '+r[3]))}}
+  return CAT;
+}
+$('#add').onclick=()=>{$('#modal').hidden=false;$('#dt').value=iso(Date.now());$('#dt').max=iso(Date.now());$('#q').focus()};
+$('#modal').onclick=e=>{if(e.target.id==='modal')$('#modal').hidden=true};
+document.onkeydown=e=>{if(e.key==='Escape'){ $('#modal').hidden=true; if(!$('#removeModal').hidden)closeRemove(); }};
+async function find(){
+  const q=$('#q').value.trim(); if(q.length<2){$('#res').innerHTML='';return}
+  let c; try{msg('Loading product list…');c=await catalog();msg()}catch(e){msg('Product list not ready yet — run the "update catalog" workflow on GitHub.');return}
+  const t=norm(q).split(' '),hits=[];
+  for(let i=0;i<c.rows.length&&hits.length<3000;i++)if(t.every(x=>c.hay[i].includes(x)))hits.push(i);
+  hits.sort((a,b)=>c.rows[a][1].length-c.rows[b][1].length);
+  const res=hits.slice(0,25).map(i=>{const r=c.rows[i];return {pid:r[0],name:r[1],gid:r[2],set:c.sets[r[2]][0]+(r[3]?' · #'+r[3]:'')}});
+  msg(res.length?'':'No products match.');
+  $('#res').innerHTML=res.map((x,i)=>`<button data-i="${i}">${x.name}<small>${x.set}</small></button>`).join('');
+  $('#res').onclick=e=>{const b=e.target.closest('button');if(!b)return;picked=res[+b.dataset.i];
+    $('#picked').innerHTML=`<b>${picked.name}</b><small class="mut" style="display:block">${picked.set}</small>`;$('#pick').hidden=false;$('#res').innerHTML='';
+    const eq=D.lots.filter(l=>l.pid===picked.pid).reduce((a,l)=>a+l.qty,0);
+    msg(eq?`You already hold ${eq} — this purchase will be averaged into that position.`:'');$('#cost').focus()};
+}
+$('#q').oninput=()=>{clearTimeout(timer);timer=setTimeout(find,250)};
+$('#save').onclick=async()=>{
+  const qty=+$('#qty').value,cost=+$('#cost').value; if(!picked||!(qty>0)||!Number.isInteger(qty)||!(cost>=0)||$('#cost').value===''){msg('Quantity must be a whole number, and cost is required.');return}
+  $('#save').disabled=true;msg('Adding…');
+  try{
+    const {error}=await sb.from('lots').insert({pid:picked.pid,gid:picked.gid,name:picked.name,qty,cost,date:$('#dt').value}); if(error)throw error;
+    await load(); $('#modal').hidden=true; $('#pick').hidden=true; $('#q').value=''; picked=null; msg(); render();
+  }catch(e){msg('Failed: '+e.message)}
+  $('#save').disabled=false;
+};
+
+// ---- remove / sold inventory
+let rPicked=null, removeMode='remove';
+const rmsg=t=>$('#rmsg').textContent=t||'';
+function currentHoldings(){
+  if(!M)return []; const n=M.days.length-1;
+  return Object.entries(M.skus).map(([pid,s])=>({pid:+pid,name:s.name,qty:Math.max(0,Math.floor(s.qty[n]||0))})).filter(x=>x.qty>0);
+}
+function closeRemove(){ $('#removeModal').hidden=true; $('#rpick').hidden=true; $('#rq').value=''; $('#rres').innerHTML=''; rPicked=null; rmsg(); }
+$('#remove').onclick=()=>{
+  $('#removeModal').hidden=false; $('#rdt').value=iso(Date.now()); $('#rdt').max=iso(Date.now()); $('#rq').focus();
+};
+$('#removeModal').onclick=e=>{if(e.target.id==='removeModal')closeRemove()};
+function findHeld(){
+  const q=norm($('#rq').value); const all=currentHoldings();
+  const hits=(q?all.filter(x=>norm(x.name).includes(q)):all).slice(0,25);
+  $('#rres').innerHTML=hits.map((x,i)=>`<button data-i="${i}">${x.name}<small>${x.qty} currently held</small></button>`).join('');
+  $('#rres').onclick=e=>{const b=e.target.closest('button');if(!b)return;rPicked=hits[+b.dataset.i];
+    $('#rpicked').innerHTML=`<b>${rPicked.name}</b><small class="mut" style="display:block">${rPicked.qty} currently held</small>`;
+    $('#rqty').max=rPicked.qty; $('#rqty').value=1; $('#rpick').hidden=false; $('#rres').innerHTML='';};
+}
+$('#rq').oninput=findHeld;
+function setRemoveMode(mode){
+  removeMode=mode; $('#removeOnly').classList.toggle('on',mode==='remove'); $('#sold').classList.toggle('on',mode==='sold');
+  $('#soldFields').hidden=mode!=='sold'; $('#confirmRemove').textContent=mode==='sold'?'Record Sale':'Remove Inventory';
+}
+$('#removeOnly').onclick=()=>setRemoveMode('remove'); $('#sold').onclick=()=>setRemoveMode('sold');
+$('#confirmRemove').onclick=async()=>{
+  const qty=+$('#rqty').value, soldPrice=+$('#soldPrice').value;
+  if(!rPicked||!Number.isInteger(qty)||qty<1||qty>rPicked.qty){rmsg(`Enter a whole-number quantity from 1 to ${rPicked?.qty||0}.`);return}
+  if(removeMode==='sold'&&($('#soldPrice').value===''||soldPrice<0)){rmsg('Enter the sold price per item.');return}
+  $('#confirmRemove').disabled=true; rmsg(removeMode==='sold'?'Recording sale…':'Removing…');
+  try{
+    const row={pid:rPicked.pid,name:rPicked.name,event_type:removeMode,qty,date:$('#rdt').value,sold_price:removeMode==='sold'?soldPrice:null};
+    const {error}=await sb.from('inventory_events').insert(row); if(error)throw error;
+    await load(); closeRemove(); S.scope=null; render();
+  }catch(e){rmsg('Failed: '+e.message)}
+  $('#confirmRemove').disabled=false;
+};
+})();
+</script>
+</body>
+</html>
